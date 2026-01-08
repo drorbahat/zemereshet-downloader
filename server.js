@@ -507,13 +507,17 @@ app.post('/api/download', async (req, res) => {
             throw err;
         });
 
-        // Track when archive finishes writing
-        archive.on('end', () => {
-            console.log(`📦 ZIP stream completed: ${zipFilename}`);
-        });
+        // Set response headers BEFORE piping
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
 
-        // Pipe archive to response
+        // Pipe archive to response - this will auto-end the response when done
         archive.pipe(res);
+
+        // Track completion (for logging only)
+        archive.on('finish', () => {
+            console.log(`📦 ZIP finalized and piped to response: ${zipFilename}`);
+        });
 
         // Create metadata file
         let metadata = `🎵 שם השיר: ${songTitle}\n`;
