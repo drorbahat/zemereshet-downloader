@@ -333,12 +333,22 @@
                 a.href = downloadUrl;
                 a.download = filename;
                 a.id = 'downloadLink';
-                a.style.display = 'none';
                 document.body.appendChild(a);
 
-                // Trigger download
-                a.click();
-                console.log('Download triggered for:', filename);
+                // Try to trigger download with a simulated mouse event
+                try {
+                    const evt = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    });
+                    a.dispatchEvent(evt);
+                    console.log('Download triggered with MouseEvent for:', filename);
+                } catch (e) {
+                    // Fallback to regular click
+                    a.click();
+                    console.log('Download triggered with click() for:', filename);
+                }
 
                 // Show success with direct download link
                 const directLink = `<a href="${downloadUrl}" download="${filename}" style="color: #2e7d32; text-decoration: underline; font-weight: bold; font-size: 18px;">👉 לחץ כאן להורדה 👈</a>`;
