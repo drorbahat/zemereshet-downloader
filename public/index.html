@@ -326,17 +326,23 @@
 
                 // Download the ZIP file
                 const blob = await response.blob();
+                console.log('Blob created:', blob.size, 'bytes');
+
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = downloadUrl;
                 a.download = filename;
                 a.id = 'downloadLink';
+                a.style.display = 'none';
                 document.body.appendChild(a);
+
+                // Trigger download
                 a.click();
+                console.log('Download triggered for:', filename);
 
                 // Show success with direct download link
-                const directLink = `<a href="${downloadUrl}" download="${filename}" style="color: #2e7d32; text-decoration: underline; font-weight: bold;">לחץ כאן להורדה ישירה</a>`;
-                showStatus(`✅ הורדה הושלמה!<br>אם ההורדה לא התחילה אוטומטית: ${directLink} 🎉`, 'success');
+                const directLink = `<a href="${downloadUrl}" download="${filename}" style="color: #2e7d32; text-decoration: underline; font-weight: bold; font-size: 18px;">👉 לחץ כאן להורדה 👈</a>`;
+                showStatus(`✅ קובץ מוכן!<br><br>${directLink}<br><br><small>אם ההורדה לא התחילה אוטומטית, לחץ על הקישור למעלה</small>`, 'success');
 
                 // Clean up after 5 minutes
                 setTimeout(() => {
