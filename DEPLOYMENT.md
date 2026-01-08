@@ -50,7 +50,7 @@ node server.js
 
 Install PM2 (process manager):
 ```bash
-npm install -g pm2
+sudo npm install -g pm2
 ```
 
 Start the application:
