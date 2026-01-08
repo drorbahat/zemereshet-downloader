@@ -507,6 +507,11 @@ app.post('/api/download', async (req, res) => {
             throw err;
         });
 
+        // Track when archive finishes writing
+        archive.on('end', () => {
+            console.log(`📦 ZIP stream completed: ${zipFilename}`);
+        });
+
         // Pipe archive to response
         archive.pipe(res);
 
@@ -591,10 +596,7 @@ app.post('/api/download', async (req, res) => {
 
         // Finalize the archive (this will trigger the download)
         await archive.finalize();
-        console.log(`📦 ZIP file sent: ${zipFilename}`);
-
-        // End the response
-        res.end();
+        console.log(`📦 ZIP finalized: ${zipFilename}`);
 
     } catch (error) {
         console.error('Error:', error);
