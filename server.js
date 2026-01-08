@@ -9,30 +9,194 @@ const fs = require('fs');
 const app = express();
 const PORT = 3000;
 
-// Basic authentication credentials (change these!)
-const USERNAME = process.env.AUTH_USERNAME || 'zemereshet';
-const PASSWORD = process.env.AUTH_PASSWORD || 'download2026';
+// Password file location
+const PASSWORD_FILE = path.join(__dirname, '.password');
+
+// Check if password is set
+function isPasswordSet() {
+    return fs.existsSync(PASSWORD_FILE);
+}
+
+// Get stored password
+function getPassword() {
+    if (!isPasswordSet()) return null;
+    return fs.readFileSync(PASSWORD_FILE, 'utf8').trim();
+}
+
+// Set password
+function setPassword(password) {
+    fs.writeFileSync(PASSWORD_FILE, password, 'utf8');
+    fs.chmodSync(PASSWORD_FILE, 0o600); // Read/write only for owner
+}
 
 app.use(express.json());
 
-// Basic authentication middleware
-app.use((req, res, next) => {
-    const authHeader = req.headers.authorization;
+// Setup page - shown only when password is not set
+app.get('/setup', (req, res) => {
+    if (isPasswordSet()) {
+        return res.redirect('/');
+    }
 
+    res.send(`
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 הגדרת סיסמה</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 45px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { font-size: 32px; margin-bottom: 10px; color: #333; text-align: center; }
+        p { color: #666; margin-bottom: 30px; text-align: center; line-height: 1.6; }
+        input {
+            width: 100%;
+            padding: 18px 22px;
+            border: 2px solid #e0e0e0;
+            border-radius: 14px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            font-family: inherit;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        button {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6); }
+        .error { color: #c62828; background: #ffebee; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        .error.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 ברוך הבא!</h1>
+        <p>זו הפעם הראשונה שאתה משתמש במורד זמרשת.<br>אנא הגדר סיסמה לאבטחת המערכת.</p>
+        <div class="error" id="error"></div>
+        <input type="password" id="password" placeholder="הזן סיסמה" autofocus>
+        <input type="password" id="confirm" placeholder="אימות סיסמה">
+        <button onclick="setupPassword()">💾 שמור סיסמה</button>
+    </div>
+    <script>
+        async function setupPassword() {
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirm').value;
+            const error = document.getElementById('error');
+
+            if (!password || password.length < 4) {
+                error.textContent = '❌ הסיסמה חייבת להיות לפחות 4 תווים';
+                error.classList.add('show');
+                return;
+            }
+
+            if (password !== confirm) {
+                error.textContent = '❌ הסיסמאות לא תואמות';
+                error.classList.add('show');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    error.textContent = '❌ שגיאה בהגדרת הסיסמה';
+                    error.classList.add('show');
+                }
+            } catch (e) {
+                error.textContent = '❌ שגיאת רשת';
+                error.classList.add('show');
+            }
+        }
+
+        document.getElementById('confirm').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') setupPassword();
+        });
+    </script>
+</body>
+</html>
+    `);
+});
+
+// Setup API endpoint
+app.post('/api/setup', (req, res) => {
+    if (isPasswordSet()) {
+        return res.status(403).json({ error: 'Password already set' });
+    }
+
+    const { password } = req.body;
+    if (!password || password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+
+    setPassword(password);
+    res.json({ success: true });
+});
+
+// Password authentication middleware
+app.use((req, res, next) => {
+    // Allow setup endpoints
+    if (req.path === '/setup' || req.path === '/api/setup') {
+        return next();
+    }
+
+    // Redirect to setup if no password is set
+    if (!isPasswordSet()) {
+        if (req.path === '/' || req.path.startsWith('/api/')) {
+            return res.redirect('/setup');
+        }
+        return next();
+    }
+
+    // Check authentication
+    const authHeader = req.headers.authorization;
     if (!authHeader) {
         res.setHeader('WWW-Authenticate', 'Basic realm="Zemereshet Downloader"');
         return res.status(401).send('Authentication required');
     }
 
     const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
-    const user = auth[0];
-    const pass = auth[1];
+    const pass = auth[1] || auth[0]; // Support both "user:pass" and just "pass"
 
-    if (user === USERNAME && pass === PASSWORD) {
+    if (pass === getPassword()) {
         next();
     } else {
         res.setHeader('WWW-Authenticate', 'Basic realm="Zemereshet Downloader"');
-        return res.status(401).send('Invalid credentials');
+        return res.status(401).send('Invalid password');
     }
 });
 

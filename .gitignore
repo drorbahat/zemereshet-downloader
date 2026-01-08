@@ -3,3 +3,4 @@ downloads/
 .DS_Store
 *.log
 .env
+.password
