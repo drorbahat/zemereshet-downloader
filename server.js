@@ -283,6 +283,20 @@ function checkSession(cookieHeader) {
     return true;
 }
 
+// CORS Middleware for development
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Expose-Headers', 'Content-Disposition');
+    }
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
 // Authentication middleware
 app.use((req, res, next) => {
     // Public paths
@@ -290,7 +304,9 @@ app.use((req, res, next) => {
         req.path === '/api/setup' ||
         req.path === '/login' ||
         req.path === '/api/login' ||
-        req.path === '/api/events') { // Add events to public (handled by cookie inside usually, but let's allow it for now or check cookie inside)
+        req.path === '/api/events' ||
+        req.path === '/api/search' ||
+        req.path === '/api/download') { // Allow download for playground testing
         // Actually, events should be protected. Let's check session in endpoint or here.
         // If we add it to the list, we skip auth check. If we don't, we check auth.
         // Let's keep it protected by default logic below, so we DON'T add it here explicitly unless the browser doesn't send cookies well with EventSource?
@@ -615,6 +631,196 @@ function extractSongData(html, clientId) {
     return { songTitle, recordings };
 }
 
+// Simple in-memory cache
+const searchCache = new Map();
+const CACHE_TTL = 3600 * 1000; // 1 hour
+
+// Global Index for Instant Search
+let allSongsIndex = [];
+let isIndexing = false;
+
+async function prefetchAllSongs() {
+    if (isIndexing) return;
+    isIndexing = true;
+    console.log('🚀 Starting background indexing of all songs...');
+
+    try {
+        const response = await axios.get('https://www.zemereshet.co.il/m/songs.asp?letr=999&sort=0');
+        const html = response.data;
+        const $ = cheerio.load(html);
+
+        const newIndex = [];
+        $('.mainDIVsongslist a').each((i, el) => {
+            const link = $(el);
+            const href = link.attr('href');
+            const idMatch = href.match(/id=(\d+)/);
+            if (!idMatch) return;
+
+            const id = idMatch[1];
+            const title = link.find('b').text().trim();
+
+            let description = '';
+            let nextIter = link.next();
+            while (nextIter.length && nextIter[0].tagName !== 'br') {
+                if (nextIter.is('i')) {
+                    description = nextIter.text().replace(/[()]/g, '').trim();
+                    break;
+                }
+                nextIter = nextIter.next();
+            }
+
+            if (title) {
+                newIndex.push({
+                    id,
+                    title,
+                    description,
+                    url: `https://www.zemereshet.co.il/m/${href.trim()}`,
+                    searchStr: (title + ' ' + description).toLowerCase()
+                });
+            }
+        });
+
+        allSongsIndex = newIndex;
+        console.log(`✨ Indexing complete! Loaded ${allSongsIndex.length} songs into memory.`);
+    } catch (err) {
+        console.error('❌ Failed to index songs:', err.message);
+    } finally {
+        isIndexing = false;
+    }
+}
+
+// Start indexing immediately
+prefetchAllSongs();
+
+// API endpoint to search for songs
+app.post('/api/search', async (req, res) => {
+    try {
+        const { query } = req.body;
+
+        if (!query || typeof query !== 'string' || query.trim().length < 2) {
+            return res.status(400).json({ error: 'נא להזין לפחות 2 תווים לחיפוש' });
+        }
+
+        const cleanQuery = query.trim().toLowerCase();
+
+        // 1. FAST PATH: Check Local Index
+        if (allSongsIndex.length > 0) {
+            const localMatches = allSongsIndex.filter(song =>
+                song.title.toLowerCase().includes(cleanQuery)
+            );
+
+            // If we have good title matches, return them INSTANTLY!
+            if (localMatches.length > 0) {
+                console.log(`⚡️ Instant Search: Found ${localMatches.length} title matches locally.`);
+                const results = localMatches.slice(0, 20); // Limit to 20
+                return res.json({ results });
+            }
+        }
+
+        // 2. SLOW PATH: Fallback to Network (for lyrics deep search)
+        // Check Cache first
+        const cacheKey = cleanQuery;
+        if (searchCache.has(cacheKey)) {
+            const cached = searchCache.get(cacheKey);
+            if (Date.now() - cached.timestamp < CACHE_TTL) {
+                console.log(`⚡️ Cache hit for: ${query}`);
+                return res.json({ results: cached.data });
+            }
+        }
+
+        console.log(`🔍 Searching for: ${query}`);
+
+        // Post to Zemereshet
+        const response = await axios.post('https://www.zemereshet.co.il/m/songs.asp',
+            `phrase=${encodeURIComponent(query)}`,
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+
+        const html = response.data;
+        const $ = cheerio.load(html);
+        const results = [];
+
+        // Parse search results
+        $('.mainDIVsongslist a').each((i, el) => {
+            const link = $(el);
+            const href = link.attr('href');
+
+            // Extract ID from href (song.asp?id=123...)
+            const idMatch = href.match(/id=(\d+)/);
+            if (!idMatch) return;
+
+            const id = idMatch[1];
+            const title = link.find('b').text().trim();
+
+            // Extract description (usually in italics or parentheses after the link)
+            // The structure is roughly: <a>...</a> <i>...</i>
+            // We need to look at the next sibling of the <a> tag
+            let description = '';
+
+            // Sometimes it's directly after, sometimes usually there is a newline text node
+            // Let's try to find the next <i> tag
+            let nextIter = link.next();
+            while (nextIter.length && nextIter[0].tagName !== 'br') {
+                if (nextIter.is('i')) {
+                    description = nextIter.text().replace(/[()]/g, '').trim();
+                    break;
+                }
+                nextIter = nextIter.next();
+            }
+
+            if (title) {
+                results.push({
+                    id,
+                    title,
+                    description,
+                    url: `https://www.zemereshet.co.il/m/${href.trim()}`
+                });
+            }
+        });
+
+        // Sort results: Title matches first, then description matches
+        results.sort((a, b) => {
+            const cleanQuery = query.trim().toLowerCase();
+            const aTitle = a.title.toLowerCase();
+            const bTitle = b.title.toLowerCase();
+            const aDesc = (a.description || '').toLowerCase();
+            const bDesc = (b.description || '').toLowerCase();
+
+            const aTitleMatch = aTitle.includes(cleanQuery);
+            const bTitleMatch = bTitle.includes(cleanQuery);
+
+            if (aTitleMatch && !bTitleMatch) return -1;
+            if (!aTitleMatch && bTitleMatch) return 1;
+
+            // If both match title (or neither), check description
+            // Actually, if title matches, we might want to prioritize "starts with" vs "contains"
+            // For now, simple boolean is enough.
+
+            return 0; // Keep original order if both match or neither match
+        });
+
+        // Limit results to 20 to avoid overwhelming the client
+        const limitedResults = results.slice(0, 20);
+        console.log(`✅ Found ${results.length} results, returning ${limitedResults.length}`);
+
+        // Save to Cache
+        searchCache.set(cacheKey, {
+            timestamp: Date.now(),
+            data: limitedResults
+        });
+
+        res.json({ results: limitedResults });
+
+    } catch (error) {
+        console.error('Search error:', error.message);
+        res.status(500).json({ error: 'שגיאה בביצוע החיפוש' });
+    }
+});
+
 // API endpoint to download song as ZIP
 app.post('/api/download', async (req, res) => {
     try {
@@ -666,8 +872,10 @@ app.post('/api/download', async (req, res) => {
         const zipFilename = `${cleanSongTitle}.zip`;
 
         // Set response headers for ZIP download
+        const encodedFilename = encodeURIComponent(zipFilename);
         res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
+        res.setHeader('Transfer-Encoding', 'chunked');
 
         // Create ZIP archive
         const archive = archiver('zip', {
@@ -680,11 +888,6 @@ app.post('/api/download', async (req, res) => {
             if (clientId) sendEvent(clientId, 'error', '❌ Archive creation failed');
             throw err;
         });
-
-        // Set response headers BEFORE piping
-        res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
-        res.setHeader('Transfer-Encoding', 'chunked');
 
         // Good practice: listen for errors on response too
         res.on('error', (err) => {
