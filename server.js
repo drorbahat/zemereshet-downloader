@@ -603,14 +603,26 @@ app.post('/api/download', async (req, res) => {
 
         console.log(`\n✅ הושלם! ${successCount}/${recordings.length} קבצים\n`);
 
-        // Finalize the archive and wait for completion
+        // Finalize the archive and wait for RESPONSE to finish (not just archive)
         await new Promise((resolve, reject) => {
-            archive.on('end', resolve);
+            // Wait for response to finish sending all data
+            res.on('finish', () => {
+                console.log(`✅ Response fully sent: ${zipFilename}`);
+                resolve();
+            });
+
+            res.on('close', () => {
+                console.log(`🔌 Response connection closed: ${zipFilename}`);
+            });
+
             archive.on('error', reject);
+
+            // Start finalizing the archive
             archive.finalize();
+            console.log(`📦 Archive finalize started: ${zipFilename}`);
         });
 
-        console.log(`📦 ZIP finalized and sent: ${zipFilename}`);
+        console.log(`📦 ZIP download complete: ${zipFilename}`);
 
     } catch (error) {
         console.error('Error:', error);
