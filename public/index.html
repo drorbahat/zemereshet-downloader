@@ -236,23 +236,8 @@
                 />
             </div>
 
-            <div class="input-group">
-                <label for="folderInput">
-                    תיקיית יעד:
-                </label>
-                <input
-                    type="text"
-                    id="folderInput"
-                    value="/home/username/Music/Zemereshet"
-                    placeholder="/home/username/Music/Zemereshet"
-                />
-                <div style="font-size: 13px; color: #666; margin-top: 8px;">
-                    💡 טיפ: תיקייה חדשה עם שם השיר תיווצר אוטומטית
-                </div>
-            </div>
-
             <button class="btn" id="downloadBtn" onclick="download()">
-                📥 הורד לתיקייה
+                📥 הורד ZIP
             </button>
 
             <div class="status" id="status"></div>
@@ -270,12 +255,12 @@
             <ul>
                 <li>הכלי יטען את דף השיר</li>
                 <li>יחלץ את כל ההקלטות (MP3)</li>
-                <li>ייצור תיקייה חדשה עם שם השיר</li>
-                <li>ישמור הכל ישירות עם שמות עבריים מלאים!</li>
+                <li>יארוז הכל ב-ZIP עם שמות עבריים מלאים</li>
                 <li>יוסיף קובץ מידע עם כל הפרטים</li>
+                <li>יוריד את ה-ZIP למחשב שלך!</li>
             </ul>
             <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.2); border-radius: 8px;">
-                <strong>💡 טיפ:</strong> לא צריך ZIP! הקבצים נשמרים ישירות במחשב שלך עם שמות עבריים מושלמים 🇮🇱
+                <strong>💡 טיפ:</strong> כל השמות בעברית מושלמת - פשוט תפתח את ה-ZIP ותהנה! 🇮🇱
             </div>
         </div>
     </div>
@@ -289,9 +274,8 @@
 
         async function download() {
             const url = document.getElementById('urlInput').value.trim();
-            const folder = document.getElementById('folderInput').value.trim();
             const btn = document.getElementById('downloadBtn');
-            
+
             if (!url) {
                 showStatus('❌ נא להדביק קישור לשיר', 'error');
                 return;
@@ -307,13 +291,8 @@
                 return;
             }
 
-            if (!folder) {
-                showStatus('❌ נא להזין נתיב לתיקיית יעד', 'error');
-                return;
-            }
-
             btn.disabled = true;
-            showStatus('<div class="spinner"></div> מוריד לתיקייה... אנא המתן', 'loading');
+            showStatus('<div class="spinner"></div> מכין ZIP... אנא המתן', 'loading');
 
             try {
                 const response = await fetch('/api/download', {
@@ -321,16 +300,42 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ url, folder })
+                    body: JSON.stringify({ url })
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
+                    const errorText = await response.text();
+                    let error;
+                    try {
+                        error = JSON.parse(errorText);
+                    } catch (e) {
+                        throw new Error(errorText || 'שגיאה בהורדה');
+                    }
                     throw new Error(error.error || 'שגיאה בהורדה');
                 }
 
-                const result = await response.json();
-                showStatus(`✅ הורדה הושלמה! ${result.successCount}/${result.totalCount} קבצים נשמרו ב: ${result.folderPath} 🎉`, 'success');
+                // Get filename from Content-Disposition header
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = 'download.zip';
+                if (disposition) {
+                    const filenameMatch = disposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?;?/);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = decodeURIComponent(filenameMatch[1]);
+                    }
+                }
+
+                // Download the ZIP file
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+
+                showStatus(`✅ הורדה הושלמה! הקובץ נשמר ב-Downloads 🎉`, 'success');
 
             } catch (error) {
                 console.error(error);

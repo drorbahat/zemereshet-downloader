@@ -5,6 +5,7 @@ const cheerio = require('cheerio');
 const iconv = require('iconv-lite');
 const path = require('path');
 const fs = require('fs');
+const archiver = require('archiver');
 
 const app = express();
 const PORT = 3000;
@@ -444,10 +445,10 @@ function extractSongData(html) {
     return { songTitle, recordings };
 }
 
-// API endpoint to download song
+// API endpoint to download song as ZIP
 app.post('/api/download', async (req, res) => {
     try {
-        const { url, folder } = req.body;
+        const { url } = req.body;
 
         // Validate URL - only allow zemereshet.co.il
         if (!url || typeof url !== 'string') {
@@ -463,23 +464,7 @@ app.post('/api/download', async (req, res) => {
             return res.status(400).json({ error: 'קישור לא תקין' });
         }
 
-        if (!folder || typeof folder !== 'string') {
-            return res.status(400).json({ error: 'נתיב תיקייה חסר' });
-        }
-
-        // Remove quotes if user pasted with quotes
-        const cleanFolder = folder.replace(/^['"]|['"]$/g, '');
-
-        // Security: Validate folder path - prevent path traversal
-        const resolvedFolder = path.resolve(cleanFolder);
-
-        // Check for path traversal attempts
-        if (cleanFolder.includes('..') || !resolvedFolder.startsWith('/')) {
-            return res.status(400).json({ error: 'נתיב תיקייה לא חוקי' });
-        }
-        
         console.log(`📥 Downloading: ${url}`);
-        console.log(`📁 Target folder: ${resolvedFolder}`);
 
         // Fetch the page - Zemereshet now uses UTF-8!
         const response = await axios.get(url, {
@@ -503,29 +488,28 @@ app.post('/api/download', async (req, res) => {
 
         console.log(`🎵 Song: ${songTitle}, Recordings: ${recordings.length}`);
 
-        // Create folder for this song
+        // Create safe filename for ZIP
         const cleanSongTitle = songTitle.replace(/[<>:"/\\|?*]/g, '_');
-        const songFolderPath = path.join(resolvedFolder, cleanSongTitle);
-        
-        console.log(`📁 Song folder will be: ${songFolderPath}`);
+        const zipFilename = `${cleanSongTitle}.zip`;
 
-        // Create directory if it doesn't exist
-        if (!fs.existsSync(resolvedFolder)) {
-            console.log(`📁 Creating base folder: ${resolvedFolder}`);
-            fs.mkdirSync(resolvedFolder, { recursive: true });
-        } else {
-            console.log(`✅ Base folder exists: ${resolvedFolder}`);
-        }
-        
-        if (!fs.existsSync(songFolderPath)) {
-            console.log(`📁 Creating song folder: ${songFolderPath}`);
-            fs.mkdirSync(songFolderPath, { recursive: true });
-        } else {
-            console.log(`✅ Song folder exists: ${songFolderPath}`);
-        }
-        
-        console.log(`✅ Folder created successfully!`);
-        
+        // Set response headers for ZIP download
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
+
+        // Create ZIP archive
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Maximum compression
+        });
+
+        // Handle archive errors
+        archive.on('error', (err) => {
+            console.error('Archive error:', err);
+            throw err;
+        });
+
+        // Pipe archive to response
+        archive.pipe(res);
+
         // Create metadata file
         let metadata = `🎵 שם השיר: ${songTitle}\n`;
         metadata += `מספר הקלטות: ${recordings.length}\n`;
@@ -557,74 +541,57 @@ app.post('/api/download', async (req, res) => {
             }
         });
         
-        // Save metadata file
-        const metadataPath = path.join(songFolderPath, 'מידע_על_השיר.txt');
-        fs.writeFileSync(metadataPath, metadata, 'utf8');
-        console.log(`📄 Created metadata file`);
-        
-        // Download all MP3s
+        // Add metadata file to ZIP
+        archive.append(metadata, { name: 'מידע_על_השיר.txt' });
+        console.log(`📄 Added metadata file to ZIP`);
+
+        // Download all MP3s and add to ZIP
         let successCount = 0;
         for (let i = 0; i < recordings.length; i++) {
             const rec = recordings[i];
             const paddedNum = String(i + 1).padStart(2, '0');
-            
+
             // Full Hebrew filename
             const cleanPerformer = rec.performer.replace(/[<>:"/\\|?*]/g, '_');
-            const filename = rec.year ? 
+            const filename = rec.year ?
                 `${paddedNum} - ${cleanSongTitle} - ${cleanPerformer} ${rec.year}.mp3` :
                 `${paddedNum} - ${cleanSongTitle} - ${cleanPerformer}.mp3`;
-            
-            const filePath = path.join(songFolderPath, filename);
-            
+
             try {
                 console.log(`⏳ [${i + 1}/${recordings.length}] ${rec.performer}`);
                 console.log(`   URL: ${rec.url}`);
-                console.log(`   File will be saved to: ${filePath}`);
-                
+
                 const mp3Response = await axios.get(rec.url, {
                     responseType: 'arraybuffer',
                     timeout: 60000
                 });
-                
+
                 console.log(`   Downloaded ${mp3Response.data.byteLength} bytes`);
-                
+
                 if (mp3Response.data.byteLength > 1000) {
-                    // Save file directly
-                    fs.writeFileSync(filePath, Buffer.from(mp3Response.data));
-                    console.log(`   ✅ File saved successfully!`);
-                    
-                    // Verify file exists
-                    if (fs.existsSync(filePath)) {
-                        const stats = fs.statSync(filePath);
-                        console.log(`   ✅ File verified! Size: ${stats.size} bytes`);
-                        successCount++;
-                    } else {
-                        console.log(`   ❌ File NOT found after save!`);
-                    }
+                    // Add file to ZIP
+                    archive.append(Buffer.from(mp3Response.data), { name: filename });
+                    console.log(`   ✅ Added to ZIP: ${filename}`);
+                    successCount++;
                 } else {
                     console.log(`⚠️  [${i + 1}/${recordings.length}] קובץ קטן מדי: ${mp3Response.data.byteLength} bytes`);
                 }
-                
+
                 // Small delay
                 if (i < recordings.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 300));
                 }
-                
+
             } catch (error) {
                 console.error(`❌ [${i + 1}/${recordings.length}] ${rec.performer}: ${error.message}`);
             }
         }
-        
+
         console.log(`\n✅ הושלם! ${successCount}/${recordings.length} קבצים\n`);
-        
-        // Send success response
-        res.json({
-            success: true,
-            songTitle: songTitle,
-            totalCount: recordings.length,
-            successCount: successCount,
-            folderPath: songFolderPath
-        });
+
+        // Finalize the archive (this will trigger the download)
+        await archive.finalize();
+        console.log(`📦 ZIP file sent: ${zipFilename}`);
         
     } catch (error) {
         console.error('Error:', error);
