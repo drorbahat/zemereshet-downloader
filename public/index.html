@@ -330,12 +330,20 @@
                 const a = document.createElement('a');
                 a.href = downloadUrl;
                 a.download = filename;
+                a.id = 'downloadLink';
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(downloadUrl);
-                document.body.removeChild(a);
 
-                showStatus(`✅ הורדה הושלמה! הקובץ נשמר ב-Downloads 🎉`, 'success');
+                // Show success with direct download link
+                const directLink = `<a href="${downloadUrl}" download="${filename}" style="color: #2e7d32; text-decoration: underline; font-weight: bold;">לחץ כאן להורדה ישירה</a>`;
+                showStatus(`✅ הורדה הושלמה!<br>אם ההורדה לא התחילה אוטומטית: ${directLink} 🎉`, 'success');
+
+                // Clean up after 5 minutes
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(downloadUrl);
+                    const linkElement = document.getElementById('downloadLink');
+                    if (linkElement) document.body.removeChild(linkElement);
+                }, 300000);
 
             } catch (error) {
                 console.error(error);

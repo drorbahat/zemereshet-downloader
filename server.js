@@ -592,10 +592,15 @@ app.post('/api/download', async (req, res) => {
         // Finalize the archive (this will trigger the download)
         await archive.finalize();
         console.log(`📦 ZIP file sent: ${zipFilename}`);
-        
+
+        // End the response
+        res.end();
+
     } catch (error) {
         console.error('Error:', error);
-        res.status(500).json({ error: error.message });
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
