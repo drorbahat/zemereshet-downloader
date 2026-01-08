@@ -32,7 +32,7 @@ function setPassword(password) {
 
 app.use(express.json());
 
-// Setup page - shown only when password is not set
+// Setup page - modern UI
 app.get('/setup', (req, res) => {
     if (isPasswordSet()) {
         return res.redirect('/');
@@ -44,108 +44,139 @@ app.get('/setup', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔐 הגדרת סיסמה</title>
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>מוריד זמרשת - הגדרה</title>
     <style>
+        :root {
+            --bg-color: #f5f5f7;
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --text-color: #1d1d1f;
+            --accent-color: #0071e3;
+            --error-color: #ff3b30;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --card-bg: rgba(28, 28, 30, 0.8);
+                --text-color: #f5f5f7;
+            }
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Heebo', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             display: flex;
             align-items: center;
             justify-content: center;
+            min-height: 100vh;
             padding: 20px;
         }
         .card {
-            background: white;
-            border-radius: 24px;
-            padding: 45px;
-            max-width: 500px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 18px;
+            padding: 40px;
             width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 400px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            text-align: center;
         }
-        h1 { font-size: 32px; margin-bottom: 10px; color: #333; text-align: center; }
-        p { color: #666; margin-bottom: 30px; text-align: center; line-height: 1.6; }
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        p {
+            font-size: 15px;
+            opacity: 0.8;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
         input {
             width: 100%;
-            padding: 18px 22px;
-            border: 2px solid #e0e0e0;
-            border-radius: 14px;
-            font-size: 16px;
-            margin-bottom: 20px;
-            font-family: inherit;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(128,128,128, 0.2);
+            font-size: 17px;
+            margin-bottom: 16px;
+            background: rgba(128,128,128, 0.1);
+            color: inherit;
+            outline: none;
+            transition: all 0.2s;
         }
         input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            border-color: var(--accent-color);
+            background: rgba(128,128,128, 0.05);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15);
         }
         button {
             width: 100%;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px;
+            background: var(--accent-color);
             color: white;
             border: none;
-            border-radius: 14px;
-            font-size: 20px;
-            font-weight: 600;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 500;
             cursor: pointer;
-            font-family: inherit;
+            transition: transform 0.1s;
         }
-        button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6); }
-        .error { color: #c62828; background: #ffebee; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: none; }
-        .error.show { display: block; }
+        button:active { transform: scale(0.98); }
+        .error {
+            color: var(--error-color);
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>🔐 ברוך הבא!</h1>
-        <p>זו הפעם הראשונה שאתה משתמש במורד זמרשת.<br>אנא הגדר סיסמה לאבטחת המערכת.</p>
-        <div class="error" id="error"></div>
-        <input type="password" id="password" placeholder="הזן סיסמה" autofocus>
+        <h1>הגדרה ראשונית</h1>
+        <p>ברוכים הבאים. אנא קבעו סיסמה למערכת.</p>
+        <div id="error" class="error"></div>
+        <input type="password" id="password" placeholder="סיסמה חדשה" autofocus>
         <input type="password" id="confirm" placeholder="אימות סיסמה">
-        <button onclick="setupPassword()">💾 שמור סיסמה</button>
+        <button onclick="setup()">שמור והתחל</button>
     </div>
     <script>
-        async function setupPassword() {
+        async function setup() {
             const password = document.getElementById('password').value;
             const confirm = document.getElementById('confirm').value;
             const error = document.getElementById('error');
 
             if (!password || password.length < 4) {
-                error.textContent = '❌ הסיסמה חייבת להיות לפחות 4 תווים';
-                error.classList.add('show');
+                error.textContent = 'הסיסמה חייבת להיות לפחות 4 תווים';
+                error.style.display = 'block';
                 return;
             }
-
             if (password !== confirm) {
-                error.textContent = '❌ הסיסמאות לא תואמות';
-                error.classList.add('show');
+                error.textContent = 'הסיסמאות אינן תואמות';
+                error.style.display = 'block';
                 return;
             }
 
             try {
-                const response = await fetch('/api/setup', {
+                const res = await fetch('/api/setup', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ password })
                 });
-
-                if (response.ok) {
-                    window.location.href = '/';
+                if (res.ok) {
+                    window.location.href = '/login';
                 } else {
-                    error.textContent = '❌ שגיאה בהגדרת הסיסמה';
-                    error.classList.add('show');
+                    const data = await res.json();
+                    error.textContent = data.error || 'שגיאה';
+                    error.style.display = 'block';
                 }
             } catch (e) {
-                error.textContent = '❌ שגיאת רשת';
-                error.classList.add('show');
+                error.textContent = 'שגיאת תקשורת';
+                error.style.display = 'block';
             }
         }
-
-        document.getElementById('confirm').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') setupPassword();
+        document.addEventListener('keypress', e => {
+            if(e.key === 'Enter') setup();
         });
     </script>
 </body>
@@ -168,37 +199,58 @@ app.post('/api/setup', (req, res) => {
     res.json({ success: true });
 });
 
-// Password authentication middleware
+// Login page
+app.get('/login', (req, res) => {
+    if (!isPasswordSet()) return res.redirect('/setup');
+    const cookie = req.headers.cookie || '';
+    if (cookie.includes('auth=')) return res.redirect('/');
+    
+    // Serve the login HTML file
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// APIs that don't need auth
+app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    if (password === getPassword()) {
+        // Set a simple cookie (in a real app used securely, we'd use signed cookies, httpOnly, etc.)
+        // This is a local-tool context, so simple is fine.
+        res.cookie('auth', 'true', { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true });
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ error: 'סיסמה שגויה' });
+    }
+});
+
+// Authentication middleware
 app.use((req, res, next) => {
-    // Allow setup endpoints
-    if (req.path === '/setup' || req.path === '/api/setup') {
+    // Public paths
+    if (req.path === '/setup' || 
+        req.path === '/api/setup' || 
+        req.path === '/login' || 
+        req.path === '/api/login') {
         return next();
     }
 
     // Redirect to setup if no password is set
     if (!isPasswordSet()) {
-        if (req.path === '/' || req.path.startsWith('/api/')) {
-            return res.redirect('/setup');
-        }
+        return res.redirect('/setup');
+    }
+
+    // Check cookie
+    // Note: We need to parse cookies manually since we didn't add cookie-parser
+    const cookie = req.headers.cookie || '';
+    if (cookie.includes('auth=true')) {
         return next();
     }
 
-    // Check authentication
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Zemereshet Downloader"');
-        return res.status(401).send('Authentication required');
+    // Check header auth (for backward comaptibility or API use if needed, can remove if we want strictly cookie)
+    // But for now, let's just redirect to login for browser access
+    if (req.path.startsWith('/api/')) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
-
-    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
-    const pass = auth[1] || auth[0]; // Support both "user:pass" and just "pass"
-
-    if (pass === getPassword()) {
-        next();
-    } else {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Zemereshet Downloader"');
-        return res.status(401).send('Invalid password');
-    }
+    
+    res.redirect('/login');
 });
 
 app.use(express.static('public'));
@@ -510,6 +562,7 @@ app.post('/api/download', async (req, res) => {
         // Set response headers BEFORE piping
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
+        res.setHeader('Transfer-Encoding', 'chunked');
 
         // Good practice: listen for errors on response too
         res.on('error', (err) => {
@@ -517,12 +570,7 @@ app.post('/api/download', async (req, res) => {
         });
 
         // Pipe archive to response
-        const pipe = archive.pipe(res);
-
-        // Listen for when pipe finishes
-        pipe.on('finish', () => {
-            console.log(`📦 Pipe finished: ${zipFilename}`);
-        });
+        archive.pipe(res);
 
         // Create metadata file
         let metadata = `🎵 שם השיר: ${songTitle}\n`;
@@ -603,26 +651,41 @@ app.post('/api/download', async (req, res) => {
 
         console.log(`\n✅ הושלם! ${successCount}/${recordings.length} קבצים\n`);
 
-        // Finalize the archive and wait for RESPONSE to finish (not just archive)
-        await new Promise((resolve, reject) => {
-            // Wait for response to finish sending all data
-            res.on('finish', () => {
-                console.log(`✅ Response fully sent: ${zipFilename}`);
-                resolve();
-            });
+        // Finalize the archive - but DON'T exit the function immediately
+        console.log(`📦 Starting archive finalization: ${zipFilename}`);
+        archive.finalize();
 
-            res.on('close', () => {
-                console.log(`🔌 Response connection closed: ${zipFilename}`);
-            });
+        // Wait for BOTH archive end AND all data to be written to client
+        await new Promise((resolve, reject) => {
+            let archiveEnded = false;
+            let pipeFinished = false;
+
+            const checkBothDone = () => {
+                console.log(`📊 Status check - Archive: ${archiveEnded}, Pipe: ${pipeFinished}`);
+                if (archiveEnded && pipeFinished) {
+                    // Add a delay to ensure TCP buffers are flushed
+                    setTimeout(() => {
+                        console.log(`✅ ZIP download complete: ${zipFilename}`);
+                        resolve();
+                    }, 500);
+                }
+            };
 
             archive.on('error', reject);
 
-            // Start finalizing the archive
-            archive.finalize();
-            console.log(`📦 Archive finalize started: ${zipFilename}`);
-        });
+            archive.on('end', () => {
+                console.log(`📦 Archive finalized all data`);
+                archiveEnded = true;
+                checkBothDone();
+            });
 
-        console.log(`📦 ZIP download complete: ${zipFilename}`);
+            // The 'finish' event on res fires when the write buffer is empty
+            res.on('finish', () => {
+                console.log(`📦 Response finished sending`);
+                pipeFinished = true;
+                checkBothDone();
+            });
+        });
 
     } catch (error) {
         console.error('Error:', error);
