@@ -284,56 +284,73 @@ function extractSongData(html) {
 app.post('/api/download', async (req, res) => {
     try {
         const { url, folder } = req.body;
-        
-        if (!url || !url.includes('zemereshet.co.il')) {
+
+        // Validate URL - only allow zemereshet.co.il
+        if (!url || typeof url !== 'string') {
             return res.status(400).json({ error: 'קישור לא תקין' });
         }
 
-        if (!folder) {
+        try {
+            const urlObj = new URL(url);
+            if (urlObj.hostname !== 'www.zemereshet.co.il' && urlObj.hostname !== 'zemereshet.co.il') {
+                return res.status(400).json({ error: 'ניתן להוריד רק מזמרשת' });
+            }
+        } catch (e) {
+            return res.status(400).json({ error: 'קישור לא תקין' });
+        }
+
+        if (!folder || typeof folder !== 'string') {
             return res.status(400).json({ error: 'נתיב תיקייה חסר' });
         }
-        
+
         // Remove quotes if user pasted with quotes
         const cleanFolder = folder.replace(/^['"]|['"]$/g, '');
+
+        // Security: Validate folder path - prevent path traversal
+        const resolvedFolder = path.resolve(cleanFolder);
+
+        // Check for path traversal attempts
+        if (cleanFolder.includes('..') || !resolvedFolder.startsWith('/')) {
+            return res.status(400).json({ error: 'נתיב תיקייה לא חוקי' });
+        }
         
         console.log(`📥 Downloading: ${url}`);
-        console.log(`📁 Target folder (original): ${folder}`);
-        console.log(`📁 Target folder (cleaned): ${cleanFolder}`);
-        
+        console.log(`📁 Target folder: ${resolvedFolder}`);
+
         // Fetch the page - Zemereshet now uses UTF-8!
         const response = await axios.get(url, {
             timeout: 30000
         });
-        
+
         const html = response.data;
-        
+
         // Log sample to verify encoding
         const titleMatch = html.match(/<h1[^>]*class="bigttl"[^>]*>([^<]+)</);
         if (titleMatch) {
             console.log('📄 Found title:', titleMatch[1].trim());
         }
-        
+
         // Extract data
         const { songTitle, recordings } = extractSongData(html);
-        
+
         if (recordings.length === 0) {
             return res.status(404).json({ error: 'לא נמצאו הקלטות' });
         }
-        
+
         console.log(`🎵 Song: ${songTitle}, Recordings: ${recordings.length}`);
-        
+
         // Create folder for this song
         const cleanSongTitle = songTitle.replace(/[<>:"/\\|?*]/g, '_');
-        const songFolderPath = path.join(cleanFolder, cleanSongTitle);
+        const songFolderPath = path.join(resolvedFolder, cleanSongTitle);
         
         console.log(`📁 Song folder will be: ${songFolderPath}`);
-        
+
         // Create directory if it doesn't exist
-        if (!fs.existsSync(cleanFolder)) {
-            console.log(`📁 Creating base folder: ${cleanFolder}`);
-            fs.mkdirSync(cleanFolder, { recursive: true });
+        if (!fs.existsSync(resolvedFolder)) {
+            console.log(`📁 Creating base folder: ${resolvedFolder}`);
+            fs.mkdirSync(resolvedFolder, { recursive: true });
         } else {
-            console.log(`✅ Base folder exists: ${cleanFolder}`);
+            console.log(`✅ Base folder exists: ${resolvedFolder}`);
         }
         
         if (!fs.existsSync(songFolderPath)) {

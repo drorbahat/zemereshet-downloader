@@ -4,8 +4,8 @@ This guide will help you access your Zemereshet Downloader from anywhere on the 
 
 ## Current Access:
 
-- **Local network:** `http://10.100.102.24:3000`
-- **Tailscale (from anywhere):** `http://100.69.249.6:3000`
+- **Local network:** `http://YOUR_SERVER_IP:3000` (find with `hostname -I`)
+- **Tailscale (from anywhere):** `http://YOUR_TAILSCALE_IP:3000` (if configured)
 
 ## To Access from Anywhere (Without Tailscale):
 
@@ -32,7 +32,7 @@ You need to configure your router to forward incoming traffic on port 3000 to yo
 4. Add a new port forwarding rule:
    - **Service Name:** Zemereshet Downloader
    - **External Port:** 3000 (or any port you want, e.g., 8080)
-   - **Internal IP:** `10.100.102.24` (your server's local IP)
+   - **Internal IP:** Your server's local IP (find with `hostname -I` on your server)
    - **Internal Port:** 3000
    - **Protocol:** TCP
 5. Save and apply the settings
@@ -88,7 +88,7 @@ Tailscale is already running on your server! Just install it on your devices:
 - **Android:** Install from Play Store
 - **Windows:** Download from tailscale.com
 
-Then access via: `http://100.69.249.6:3000` from anywhere!
+Then access via: `http://YOUR_TAILSCALE_IP:3000` from anywhere!
 
 ---
 
@@ -142,7 +142,7 @@ Some ISPs offer static IP addresses for a small monthly fee.
 
 1. **Use Tailscale** (easiest and most secure)
    - You and your friends install Tailscale
-   - Share the Tailscale URL: `http://100.69.249.6:3000`
+   - Share the Tailscale URL: `http://YOUR_TAILSCALE_IP:3000`
    - No port forwarding needed
    - Encrypted connection
    - Works from anywhere

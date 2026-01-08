@@ -5,8 +5,8 @@ Your Zemereshet Downloader now has password protection! Here's how to set it up 
 ## Current Status
 
 ✅ Password authentication is enabled
-✅ Server is running on your home server at `10.100.102.24:3000`
-✅ Tailscale access available at `100.69.249.6:3000`
+✅ Server is running on your home server
+✅ Tailscale access available (if configured)
 
 ## Default Credentials
 
@@ -64,7 +64,7 @@ Look for: **Port Forwarding**, **Virtual Server**, **NAT**, or **Applications**
 Add a new rule:
 - **Service/Application Name:** Zemereshet
 - **External Port:** 3000 (or use a random port like 8765 for extra security)
-- **Internal IP Address:** `10.100.102.24`
+- **Internal IP Address:** Your server's local IP (e.g., `192.168.1.100`)
 - **Internal Port:** 3000
 - **Protocol:** TCP or Both
 - **Enable:** Yes/On
@@ -88,13 +88,13 @@ Your public IP might change. Get a free domain name:
 
 1. Go to https://www.duckdns.org
 2. Sign in with Google/GitHub
-3. Create a subdomain (e.g., `dror-zemereshet`)
-4. You'll get: `dror-zemereshet.duckdns.org`
+3. Create a subdomain (e.g., `mydownloader`)
+4. You'll get: `mydownloader.duckdns.org`
 5. Follow DuckDNS instructions to set up auto-update on your server
 
 Now you can access via:
 ```
-http://dror-zemereshet.duckdns.org:3000
+http://mydownloader.duckdns.org:3000
 ```
 
 ### Update Script for DuckDNS
@@ -161,7 +161,7 @@ Remove or comment out the authentication middleware in `server.js` (not recommen
 Instead of port forwarding, use Tailscale:
 
 1. Install Tailscale on all your devices
-2. Access: `http://100.69.249.6:3000`
+2. Access: `http://YOUR_TAILSCALE_IP:3000`
 3. No port forwarding needed
 4. Encrypted connection
 5. No password needed (device authentication)
@@ -175,8 +175,8 @@ Instead of port forwarding, use Tailscale:
 
 | Method | URL | Security | Setup Difficulty |
 |--------|-----|----------|-----------------|
-| Local Network | `http://10.100.102.24:3000` | Password | ✅ Done |
-| Tailscale | `http://100.69.249.6:3000` | Password + Device Auth | ✅ Done |
+| Local Network | `http://SERVER_LOCAL_IP:3000` | Password | ✅ Done |
+| Tailscale | `http://TAILSCALE_IP:3000` | Password + Device Auth | If configured |
 | Public Internet | `http://YOUR_PUBLIC_IP:3000` | Password | ⏳ Needs port forwarding |
 | DuckDNS | `http://your-domain.duckdns.org:3000` | Password | ⏳ Needs setup |
 

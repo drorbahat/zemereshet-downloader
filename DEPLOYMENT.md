@@ -12,7 +12,7 @@ server
 
 ```bash
 cd ~  # or wherever you want to install it
-git clone https://github.com/drorbahat/zemereshet-downloader.git
+git clone https://github.com/YOUR_USERNAME/zemereshet-downloader.git
 cd zemereshet-downloader
 ```
 
