@@ -260,7 +260,8 @@
             <div class="example">
                 <strong>דוגמה:</strong><br>
                 https://www.zemereshet.co.il/song.asp?id=5197<br>
-                https://www.zemereshet.co.il/m/song.asp?id=578
+                https://www.zemereshet.co.il/m/song.asp?id=578<br><br>
+                <strong style="color: #c62828;">❌ לא נתמך:</strong> record.asp (ביצוע בודד)
             </div>
         </div>
 
@@ -296,8 +297,13 @@
                 return;
             }
 
-            if (!url.includes('zemereshet.co.il') || !url.includes('song.asp')) {
-                showStatus('❌ זה לא נראה כמו קישור תקין לשיר בזמרשת', 'error');
+            if (!url.includes('zemereshet.co.il')) {
+                showStatus('❌ זה לא קישור מזמרשת', 'error');
+                return;
+            }
+
+            if (!url.includes('song.asp')) {
+                showStatus('❌ יש להדביק קישור לדף שיר (song.asp), לא לביצוע בודד', 'error');
                 return;
             }
 
