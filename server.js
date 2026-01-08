@@ -511,13 +511,18 @@ app.post('/api/download', async (req, res) => {
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
 
-        // Pipe archive to response - this will auto-end the response when done
-        archive.pipe(res);
-
         // Track completion (for logging only)
         archive.on('finish', () => {
-            console.log(`📦 ZIP finalized and piped to response: ${zipFilename}`);
+            console.log(`📦 Archive finished writing: ${zipFilename}`);
         });
+
+        // Listen for when all data has been flushed to response
+        res.on('finish', () => {
+            console.log(`✅ Response finished sending: ${zipFilename}`);
+        });
+
+        // Pipe archive to response - this will auto-end the response when done
+        archive.pipe(res);
 
         // Create metadata file
         let metadata = `🎵 שם השיר: ${songTitle}\n`;
@@ -598,9 +603,16 @@ app.post('/api/download', async (req, res) => {
 
         console.log(`\n✅ הושלם! ${successCount}/${recordings.length} קבצים\n`);
 
-        // Finalize the archive (this will trigger the download)
-        await archive.finalize();
-        console.log(`📦 ZIP finalized: ${zipFilename}`);
+        // Finalize the archive and wait for it to complete
+        await new Promise((resolve, reject) => {
+            archive.on('end', () => {
+                console.log(`📦 Archive stream ended: ${zipFilename}`);
+                resolve();
+            });
+            archive.on('error', reject);
+            archive.finalize();
+            console.log(`📦 ZIP finalize called: ${zipFilename}`);
+        });
 
     } catch (error) {
         console.error('Error:', error);
