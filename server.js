@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -8,7 +9,33 @@ const fs = require('fs');
 const app = express();
 const PORT = 3000;
 
+// Basic authentication credentials (change these!)
+const USERNAME = process.env.AUTH_USERNAME || 'zemereshet';
+const PASSWORD = process.env.AUTH_PASSWORD || 'download2026';
+
 app.use(express.json());
+
+// Basic authentication middleware
+app.use((req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Zemereshet Downloader"');
+        return res.status(401).send('Authentication required');
+    }
+
+    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+    const user = auth[0];
+    const pass = auth[1];
+
+    if (user === USERNAME && pass === PASSWORD) {
+        next();
+    } else {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Zemereshet Downloader"');
+        return res.status(401).send('Invalid credentials');
+    }
+});
+
 app.use(express.static('public'));
 
 // Extract song data from HTML
