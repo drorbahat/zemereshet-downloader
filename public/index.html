@@ -157,7 +157,7 @@
         /* Status & Feedback */
         .status-area {
             margin-top: 24px;
-            min-height: 60px;
+            min-height: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -213,6 +213,59 @@
             color: var(--secondary-text);
             font-size: 13px;
             text-align: center;
+        }
+
+        /* Visual Log Console */
+        .console-box {
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 24px;
+            font-family: "SF Mono", "Monaco", "Courier New", monospace;
+            font-size: 13px;
+            color: #ccc;
+            height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .console-box.show {
+            display: block;
+            animation: slideUp 0.4s ease;
+        }
+
+        .log-entry {
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 4px;
+        }
+
+        .log-time {
+            color: #666;
+            margin-right: 8px;
+            font-size: 11px;
+        }
+
+        .log-info {
+            color: #81d4fa;
+        }
+
+        .log-success {
+            color: #a5d6a7;
+        }
+
+        .log-warning {
+            color: #ffe082;
+        }
+
+        .log-error {
+            color: #ef9a9a;
+        }
+
+        .log-download {
+            color: #ce93d8;
         }
 
         /* Animations */
@@ -280,6 +333,10 @@
             <div class="status-area" id="statusArea">
                 <!-- Status messages will appear here -->
             </div>
+
+            <div class="console-box" id="consoleBox">
+                <!-- Live logs will appear here -->
+            </div>
         </div>
 
         <footer>
@@ -288,15 +345,69 @@
     </main>
 
     <script>
+        // Generate random client ID
+        const clientId = Math.random().toString(36).substring(7);
+        let eventSource;
+
+        // Connect to SSE
+        function connectSSE() {
+            if (eventSource) return;
+            // FIXED: Removed backslash escapes
+            eventSource = new EventSource(`/api/events?clientId=${clientId}`);
+
+            eventSource.onopen = () => {
+                console.log('Events connected');
+            };
+
+            eventSource.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                addLog(data.type, data.message);
+            };
+
+            eventSource.onerror = (e) => {
+                // If error, try to reconnect after delay
+                eventSource.close();
+                eventSource = null;
+                setTimeout(connectSSE, 3000);
+            };
+        }
+
+        // Initialize connection
+        connectSSE();
+
+        function addLog(type, message) {
+            const consoleBox = document.getElementById('consoleBox');
+            consoleBox.classList.add('show');
+
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const time = new Date().toLocaleTimeString('he-IL', { hour12: false });
+
+            let colorClass = 'log-info';
+            if (type === 'success' || type === 'done' || type === 'complete') colorClass = 'log-success';
+            if (type === 'error') colorClass = 'log-error';
+            if (type === 'warning') colorClass = 'log-warning';
+            if (type === 'download') colorClass = 'log-download';
+
+            // FIXED: Removed backslash escapes
+            entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${message}</span>`;
+
+            consoleBox.appendChild(entry);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
         async function download() {
             const urlInput = document.getElementById('urlInput');
             const btn = document.getElementById('downloadBtn');
             const btnText = document.getElementById('btnText');
             const statusArea = document.getElementById('statusArea');
+            const consoleBox = document.getElementById('consoleBox');
             const url = urlInput.value.trim();
 
-            // Reset
+            // Reset UI
             statusArea.innerHTML = '';
+            consoleBox.innerHTML = ''; // Clear old logs
 
             if (!url) {
                 showError('אנא הדבק קישור תחילה');
@@ -318,11 +429,16 @@
             spinner.className = 'spinner';
             btn.appendChild(spinner);
 
+            // Show console
+            consoleBox.classList.add('show');
+            addLog('info', 'Starting process...');
+
             try {
                 const response = await fetch('/api/download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
+                    // FIXED: Removed backslash escapes
+                    body: JSON.stringify({ url, clientId }) // Send clientId
                 });
 
                 if (!response.ok) {
@@ -331,7 +447,7 @@
                         const errJson = JSON.parse(errorText);
                         throw new Error(errJson.error || 'שגיאה בהורדה');
                     } catch (e) {
-                        if (e.message !== 'שגיאה בהורדה') throw e; // rethrow real json parse error if it wasn't the fallback
+                        if (e.message !== 'שגיאה בהורדה') throw e;
                         throw new Error(errorText || 'שגיאה בהורדה');
                     }
                 }
@@ -366,6 +482,7 @@
             } catch (error) {
                 console.error(error);
                 showError(error.message || 'אירעה שגיאה לא צפויה');
+                addLog('error', `Error: ${error.message}`);
             } finally {
                 // Restore button state
                 btn.removeChild(spinner);
@@ -381,10 +498,12 @@
                     <span>✅</span>
                     <div>
                         <div>ההורדה הושלמה בהצלחה!</div>
-                        <div style="font-size: 13px; opacity: 0.8; margin-top: 2px;">${filename}</div>
+                        <div class="filename-text" style="font-size: 13px; opacity: 0.8; margin-top: 2px;"></div>
                     </div>
                 </div>
             `;
+            // Safe insertion of filename
+            statusArea.querySelector('.filename-text').textContent = filename;
         }
 
         function showError(msg) {
@@ -392,9 +511,11 @@
             statusArea.innerHTML = `
                 <div class="message error">
                     <span>⚠️</span>
-                    <span>${msg}</span>
+                    <span class="error-text"></span>
                 </div>
             `;
+            // Safe insertion of error message
+            statusArea.querySelector('.error-text').textContent = msg;
         }
 
         // Enter key support
