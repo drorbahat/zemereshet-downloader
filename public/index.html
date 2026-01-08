@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 מוריד זמרשת</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Heebo', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        .header h1 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 22px;
+            opacity: 0.95;
+        }
+
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 45px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.6s ease;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 18px 22px;
+            border: 2px solid #e0e0e0;
+            border-radius: 14px;
+            font-size: 16px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            font-family: inherit;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 18px;
+            border-radius: 12px;
+            margin-top: 20px;
+            font-weight: 500;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 2px solid #90caf9;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 2px solid #81c784;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 2px solid #e57373;
+        }
+
+        .example {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            border-right: 4px solid #667eea;
+            font-size: 14px;
+        }
+
+        .example strong {
+            color: #667eea;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-box {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 25px;
+            border-radius: 16px;
+            margin-top: 30px;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .info-box h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-box li {
+            padding: 8px 0;
+            padding-right: 25px;
+            position: relative;
+        }
+
+        .info-box li:before {
+            content: "✓";
+            position: absolute;
+            right: 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 מוריד זמרשת</h1>
+            <p>הדבק קישור → קליק אחד → הכל מוריד!</p>
+        </div>
+
+        <div class="card">
+            <div class="input-group">
+                <label for="urlInput">
+                    הדבק קישור לשיר מזמרשת:
+                </label>
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    placeholder="https://www.zemereshet.co.il/song.asp?id=..."
+                    autofocus
+                />
+            </div>
+
+            <div class="input-group">
+                <label for="folderInput">
+                    תיקיית יעד (למשל: /Users/drorbahat/Music/Zemereshet):
+                </label>
+                <input 
+                    type="text" 
+                    id="folderInput"
+                    value="/Users/drorbahat/Desktop/zemereshet-downloader/downloads"
+                    placeholder="/Users/שם_משתמש/Music/Zemereshet"
+                />
+                <div style="font-size: 13px; color: #666; margin-top: 8px;">
+                    💡 טיפ: תיקייה חדשה עם שם השיר תיווצר אוטומטית
+                </div>
+            </div>
+
+            <button class="btn" id="downloadBtn" onclick="download()">
+                📥 הורד לתיקייה
+            </button>
+
+            <div class="status" id="status"></div>
+
+            <div class="example">
+                <strong>דוגמה:</strong><br>
+                https://www.zemereshet.co.il/song.asp?id=5197<br>
+                https://www.zemereshet.co.il/m/song.asp?id=578
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>✨ מה יקרה?</h3>
+            <ul>
+                <li>הכלי יטען את דף השיר</li>
+                <li>יחלץ את כל ההקלטות (MP3)</li>
+                <li>ייצור תיקייה חדשה עם שם השיר</li>
+                <li>ישמור הכל ישירות עם שמות עבריים מלאים!</li>
+                <li>יוסיף קובץ מידע עם כל הפרטים</li>
+            </ul>
+            <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.2); border-radius: 8px;">
+                <strong>💡 טיפ:</strong> לא צריך ZIP! הקבצים נשמרים ישירות במחשב שלך עם שמות עבריים מושלמים 🇮🇱
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = 'status show ' + type;
+            status.innerHTML = message;
+        }
+
+        async function download() {
+            const url = document.getElementById('urlInput').value.trim();
+            const folder = document.getElementById('folderInput').value.trim();
+            const btn = document.getElementById('downloadBtn');
+            
+            if (!url) {
+                showStatus('❌ נא להדביק קישור לשיר', 'error');
+                return;
+            }
+
+            if (!url.includes('zemereshet.co.il') || !url.includes('song.asp')) {
+                showStatus('❌ זה לא נראה כמו קישור תקין לשיר בזמרשת', 'error');
+                return;
+            }
+
+            if (!folder) {
+                showStatus('❌ נא להזין נתיב לתיקיית יעד', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            showStatus('<div class="spinner"></div> מוריד לתיקייה... אנא המתן', 'loading');
+
+            try {
+                const response = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url, folder })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'שגיאה בהורדה');
+                }
+
+                const result = await response.json();
+                showStatus(`✅ הורדה הושלמה! ${result.successCount}/${result.totalCount} קבצים נשמרו ב: ${result.folderPath} 🎉`, 'success');
+
+            } catch (error) {
+                console.error(error);
+                showStatus(`❌ שגיאה: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Allow Enter key
+        document.getElementById('urlInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                download();
+            }
+        });
+    </script>
+</body>
+</html>
